@@ -1,7 +1,7 @@
 import json
 
 from flask import Flask
-import db
+from db import db, Course, Assignment, User
 
 app = Flask(__name__)
 
@@ -25,17 +25,18 @@ def failure_response(message, code=404):
     return json.dumps({"success": False, "error": message}), code
 
 
-@app.route('/')
-def hello_world():
-    return 'Hello World!'
-
-@app.route('/api/courses')
+# course endpoints
+@app.route('/api/courses/')
 def get_courses():
-    return 'Hello World!'
+    courses = [c.serialize() for c in Course.query.all()]
+    return success_response(courses)
 
-@app.route('/api/assignments')
+
+# assignment endpoints
+@app.route('/api/assignments/')
 def get_assignments():
-    return 'Hello World!'
+    assignments = [a.serialize() for a in Assignment.query.all()]
+    return success_response(assignments)
 
 
 if __name__ == "__main__":
