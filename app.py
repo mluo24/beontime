@@ -29,6 +29,14 @@ def failure_response(message, code=404):
 def hello_world():
     return 'Hello World!'
 
+@app.route('/api/courses')
+def get_courses():
+    return 'Hello World!'
+
+@app.route('/api/assignments')
+def get_assignments():
+    return 'Hello World!'
+
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000, debug=True)
