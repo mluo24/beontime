@@ -27,6 +27,7 @@ class Course(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     code = db.Column(db.String, nullable=False)
     name = db.Column(db.String, nullable=False)
+    weekly_schedule = db.Column(db.String, nullable=False)
     assignments = db.relationship("Assignment", cascade="delete")
     # users = db.relationship("Association", back_populates="course")
 
