@@ -34,6 +34,7 @@ class Course(db.Model):
     def __init__(self, **kwargs):
         self.code = kwargs.get("code")
         self.name = kwargs.get("name")
+        self.weekly_schedule = kwargs.get("weekly_schedule")
 
     def serialize(self):
         return {
@@ -41,6 +42,7 @@ class Course(db.Model):
             "code": self.code,
             "name": self.name,
             "assignments": [s.serialize_without_course() for s in self.assignments],
+            "weekly_schedule": self.weekly_schedule
             # "instructors": [s.user.serialize_without_courses() for s in self.users if s.user.get_role_in_course(self.id)
             #                 == "instructor"],
             # "students": [s.user.serialize_without_courses() for s in self.users if s.user.get_role_in_course(self.id)
