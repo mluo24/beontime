@@ -82,11 +82,20 @@ class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String, nullable=False)
     netid = db.Column(db.String, nullable=False)
-    # courses = db.relationship("Association", back_populates="user")
+    courses = db.relationship("Association", back_populates="user")
+    email=db.Column(db.String,nullable=False,unique=True)
+    password_digest=db.Column(db.String,nullable=False)
+    session_token=db.Column(db.String,nullable=False,unique=True)
+    update_token=db.Column(db.String,nullable=False,unique=True)
 
     # def get_role_in_course(self, course_id):
     #     row = Association.query.filter_by(course_id=course_id, user_id=self.id).first()
     #     return row.role
+    
+    def __init__(self,**kwargs):
+        self.email=kwargs.get("email")
+        self.password_digest=bcrypt.hashpw(kwargs.get("password").encode("utf8"),bcrypt.gensalt(rounds=13))
+        self.renew_session()
 
     def serialize_without_courses(self):
         return {
