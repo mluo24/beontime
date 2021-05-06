@@ -94,7 +94,7 @@ def register_account():
     if optional_user is not None:
         return json.dumps({"error": "User already exists."})
     user=User(email=email,password=password)
-    db.sessions.add(user)
+    db.session.add(user)
     db.session.commit()
     return json.dumps(
         {
