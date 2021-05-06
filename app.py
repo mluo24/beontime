@@ -2,6 +2,8 @@ import json
 
 from flask import Flask
 from db import db, Course, Assignment, User
+from flask import request
+
 
 app = Flask(__name__)
 
