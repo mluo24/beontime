@@ -85,8 +85,8 @@ class Assignment(db.Model):
 class User(db.Model):
     __tablename__ = "users"
     id = db.Column(db.Integer, primary_key=True)
-    name = db.Column(db.String, nullable=False)
-    netid = db.Column(db.String, nullable=False)
+    #name = db.Column(db.String, nullable=False)
+    #netid = db.Column(db.String, nullable=False)
     #courses = db.relationship("Association", back_populates="user")
     
     email=db.Column(db.String,nullable=False,unique=True)
