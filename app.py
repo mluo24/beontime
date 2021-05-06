@@ -88,12 +88,12 @@ def register_account():
     body = json.loads(request.data)
     email=body.get("email")
     password=body.get("password")
-    if email is None or password is NOne:
+    if email is None or password is None:
         return json.dumps({"error": "Invalid email or password"})
     optional_user=get_user_by_email(email)
     if optional_user is not None:
         return json.dumps({"error": "User already exists."})
-    User=User(email=email,password=password)
+    user=User(email=email,password=password)
     db.sessions.add(user)
     db.session.commit()
     return json.dumps(
