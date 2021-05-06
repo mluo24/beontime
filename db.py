@@ -82,7 +82,7 @@ class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String, nullable=False)
     netid = db.Column(db.String, nullable=False)
-    courses = db.relationship("Association", back_populates="user")
+    # courses = db.relationship("Association", back_populates="user")
 
     # def get_role_in_course(self, course_id):
     #     row = Association.query.filter_by(course_id=course_id, user_id=self.id).first()

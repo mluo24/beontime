@@ -9,3 +9,4 @@ pip==21.1.1
 setuptools==56.0.0
 SQLAlchemy==1.4.12
 Werkzeug==1.0.1
+requests==2.25.1

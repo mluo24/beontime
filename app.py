@@ -1,6 +1,8 @@
 import json
 
 from flask import Flask
+import requests
+
 from db import db, Course, Assignment, User
 
 app = Flask(__name__)
@@ -30,6 +32,13 @@ def failure_response(message, code=404):
 def get_courses():
     courses = [c.serialize() for c in Course.query.all()]
     return success_response(courses)
+
+
+@app.route('/api/coursesextra/')
+def get_courses_api():
+    res = requests.get("https://classes.cornell.edu/api/2.0/search/classes.json?roster=SP21&subject=CS")
+    body = res.json()
+    return success_response(body["data"]["classes"])
 
 
 # assignment endpoints
