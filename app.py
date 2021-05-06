@@ -1,5 +1,3 @@
-
-  
 import json
 
 from flask import Flask
@@ -20,27 +18,29 @@ app.config["SQLALCHEMY_ECHO"] = True
 db.init_app(app)
 with app.app_context():
     db.create_all()
-    
-    
+
+
 def get_user_by_email(email):
-    return User.query.filter(User.email==email).first()
+    return User.query.filter(User.email == email).first()
+
 
 def get_user_by_session_token(session_token):
-    return User.query.filter(User.session_token==session_token).first()
+    return User.query.filter(User.session_token == session_token).first()
+
 
 def get_user_by_update_token(update_token):
-    return User.query.filter(User.update_token==update_token).forst()
+    return User.query.filter(User.update_token == update_token).forst()
+
 
 def extract_token(request):
-    auth_header=request.headers.get("Authorization")
+    auth_header = request.headers.get("Authorization")
     if auth_header is None:
         return False, json.dumps({"error": "Missing auth header"})
-    
-    bearer_token=auth_header.replace("Bearer ","").strip()
+
+    bearer_token = auth_header.replace("Bearer ", "").strip()
     if bearer_token is None or not bearer_token:
         return False, json.dumps({"error": "Invalid auth header"})
     return True, bearer_token
-
 
 
 # generalized response formats
@@ -50,6 +50,8 @@ def success_response(data, code=200):
 
 def failure_response(message, code=404):
     return json.dumps({"success": False, "error": message}), code
+
+# --------------------ENDPOINTS START HERE--------------------
 
 
 # course endpoints
@@ -66,97 +68,113 @@ def get_courses_api():
     return success_response(body["data"]["classes"])
 
 
+@app.route('/api/courses/<subject>/')
+def get_courses_from_subject(subject):
+    subject = subject.upper()
+    res = requests.get(f"https://classes.cornell.edu/api/2.0/search/classes.json?roster=SP21&subject={subject}")
+    body = res.json()
+    if body["status"] == "error":
+        return failure_response("Subject not found.")
+    return success_response(body["data"]["classes"])
+
+
+@app.route('/api/courses/<subject>/<number>/')
+def get_course_from_subject_and_number(subject, number):
+    res = requests.get(f"https://classes.cornell.edu/api/2.0/search/classes.json?roster=SP21&subject={subject}&q={number}")
+    body = res.json()
+    if body["status"] == "error":
+        return failure_response("Class not found.")
+    return success_response(body["data"]["classes"][0])
+
+
 # assignment endpoints
 @app.route('/api/assignments/')
 def get_assignments():
     assignments = [a.serialize() for a in Assignment.query.all()]
     return success_response(assignments)
 
-#User login endpoint
-@app.route('/login/',methods=["POST"])
+
+# User login endpoint
+@app.route('/login/', methods=["POST"])
 def login():
     body = json.loads(request.data)
-    email=body.get("email")
-    password=body.get("password")
+    email = body.get("email")
+    password = body.get("password")
     if email is None or password is None:
         return json.dumps({"error": "Invalid email or password"})
-    user=get_user_by_email(email)
-    success=user is not None and user.verify.password(password)
+    user = get_user_by_email(email)
+    success = user is not None and user.verify.password(password)
     if not success:
         return json.dumps({"error": "Incorrect email or password"})
     return json.dumps(
         {
-            "session_token":user.session_token,
-            "session_expiration":str(user.session_expiration),
-            "update_token":user.update_token,
+            "session_token": user.session_token,
+            "session_expiration": str(user.session_expiration),
+            "update_token": user.update_token,
         }
     )
-    
 
-#User register endpoint
-@app.route('/register/',methods=["POST"])
+
+# User register endpoint
+@app.route('/register/', methods=["POST"])
 def register_account():
-    body=json.loads(request.data)
-    email=body.get("email")
-    password=body.get("password")
+    body = json.loads(request.data)
+    email = body.get("email")
+    password = body.get("password")
     if email is None or password is None:
         return json.dumps({"error": "Invalid email or password"})
-    optional_user=get_user_by_email(email)
+    optional_user = get_user_by_email(email)
     if optional_user is not None:
         return json.dumps({"error": "User already exists."})
-    user=User(email=email,password=password)
+    user = User(email=email, password=password)
     db.session.add(user)
     db.session.commit()
     return json.dumps(
         {
-            "session_token":user.session_token,
-            "session_expiration":str(user.session_expiration),
-            "update_token":user.update_token,
+            "session_token": user.session_token,
+            "session_expiration": str(user.session_expiration),
+            "update_token": user.update_token,
         }
     )
 
-#User session update token endpoint
-@app.route('/session/',methods=["POST"])
+
+# User session update token endpoint
+@app.route('/session/', methods=["POST"])
 def update_session():
-    sucess, update_token=extract_token(request)
-    
-    if not sucess:
+    success, update_token = extract_token(request)
+
+    if not success:
         return update_token
-    
-    user=get_user_by_update_token(update_token)
-    
+
+    user = get_user_by_update_token(update_token)
+
     if user is None:
-        return json.dumps({"error":f"Invalid update token: {update_token}"})
+        return json.dumps({"error": f"Invalid update token: {update_token}"})
     user.renew_session()
     db.session.commit()
     return json.dumps(
         {
-            "session_token":user.session_token,
-            "session_expiration":str(user.session_expiration),
-            "update_token":user.update_token,
+            "session_token": user.session_token,
+            "session_expiration": str(user.session_expiration),
+            "update_token": user.update_token,
         }
     )
 
-#User message endpoint
-@app.route('/secret/',methods=["GET"])
+
+# User message endpoint
+@app.route('/secret/', methods=["GET"])
 def secret_message():
-    sucess, session_token=extract_token(request)
-    
-    if not sucess:
+    success, session_token = extract_token(request)
+
+    if not success:
         return session_token
-    
-    user=get_user_by_session_token(session_token)
+
+    user = get_user_by_session_token(session_token)
     if not user or not user.verify_session_token(session_token):
         return json.dumps({"error": "Invalid session token"})
-    
+
     return json.dumps({"message": "You have successfully implemented sessions."})
-                                
-    
-    
-
-
 
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000, debug=True)
-

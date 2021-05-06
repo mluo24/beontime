@@ -1,3 +1,4 @@
+import requests
 from flask_sqlalchemy import SQLAlchemy
 import bcrypt
 import datetime
@@ -10,43 +11,42 @@ db = SQLAlchemy()
 # EVERYTHING BELOW IS COPIED DIRECTLY FROM PA4. PLEASE EDIT IT TO BE THE CORRECT FORM
 # I commented out what I think we don't need, I only kept it so things can compile/make sense
 
-# class Association(db.Model):
-#     __tablename__ = "association"
-#     __table_args__ = (
-#         db.PrimaryKeyConstraint('course_id', 'user_id'),
-#     )
-#     course_id = db.Column(db.Integer, db.ForeignKey("courses.id"))
-#     user_id = db.Column(db.Integer, db.ForeignKey("users.id"))
-#     role = db.Column(db.String, nullable=False)
-#     course = db.relationship("Course", back_populates="users")
-#     user = db.relationship("User", back_populates="courses")
-#
-#     def __init__(self, **kwargs):
-#         self.role = kwargs.get("role")
+association_table = db.Table("association", db.Model.metadata,
+                             db.Column("user_id", db.Integer, db.ForeignKey("users.id")),
+                             db.Column("course_id", db.Integer, db.ForeignKey("courses.id")),
+                             )
 
 
+# model based on the api
 # models for courses
 class Course(db.Model):
     __tablename__ = "courses"
     id = db.Column(db.Integer, primary_key=True)
-    code = db.Column(db.String, nullable=False)
-    #name = db.Column(db.String, nullable=False)
-    weekly_schedule = db.Column(db.String, nullable=False)
-    assignments = db.relationship("Assignment", cascade="delete")
+    subject = db.Column(db.String, nullable=False)
+    code = db.Column(db.Integer, nullable=False)
     # users = db.relationship("Association", back_populates="course")
+    api_url = "https://classes.cornell.edu/api/2.0/search/classes.json?roster=SP21"
 
     def __init__(self, **kwargs):
+        self.subject = kwargs.get("subject")
         self.code = kwargs.get("code")
-        #self.name = kwargs.get("name")
-        self.weekly_schedule = kwargs.get("weekly_schedule")
+
+    def get_all_subjects(self):
+        res = requests.get(f"https://classes.cornell.edu/api/2.0/search/classes.json?roster=SP21&subject={self.subject}")
+        body = res.json()
+        return body
+
+    def get_course_from_api(self):
+        res = requests.get(
+            f"https://classes.cornell.edu/api/2.0/search/classes.json?roster=SP21&subject={self.subject}&q={self.code}")
+        body = res.json()
+        return body
 
     def serialize(self):
         return {
             "id": self.id,
             "code": self.code,
-            "name": self.name,
-            "assignments": [s.serialize_without_course() for s in self.assignments],
-            "weekly_schedule": self.weekly_schedule
+            "name": self.name
             # "instructors": [s.user.serialize_without_courses() for s in self.users if s.user.get_role_in_course(self.id)
             #                 == "instructor"],
             # "students": [s.user.serialize_without_courses() for s in self.users if s.user.get_role_in_course(self.id)
@@ -59,7 +59,7 @@ class Assignment(db.Model):
     __tablename__ = "assignments"
     id = db.Column(db.Integer, primary_key=True)
     title = db.Column(db.String, nullable=False)
-    due_date = db.Column(db.Integer)
+    due_date = db.Column(db.DateTime)
     course_id = db.Column(db.Integer, db.ForeignKey("courses.id"), nullable=False)
 
     def serialize_without_course(self):
@@ -88,37 +88,33 @@ class User(db.Model):
     #netid = db.Column(db.String, nullable=False)
     #courses = db.relationship("Association", back_populates="user")
     
-    email=db.Column(db.String,nullable=False,unique=True)
-    password_digest=db.Column(db.String,nullable=False)
-    session_token=db.Column(db.String,nullable=False,unique=True)
-    session_expiration=db.Column(db.DateTime,nullable=False)
-    update_token=db.Column(db.String,nullable=False,unique=True)
-
-    # def get_role_in_course(self, course_id):
-    #     row = Association.query.filter_by(course_id=course_id, user_id=self.id).first()
-    #     return row.role
+    email = db.Column(db.String, nullable=False, unique=True)
+    password_digest = db.Column(db.String, nullable=False)
+    session_token = db.Column(db.String, nullable=False, unique=True)
+    session_expiration = db.Column(db.DateTime, nullable=False)
+    update_token = db.Column(db.String, nullable=False, unique=True)
     
-    def __init__(self,**kwargs):
-        self.email=kwargs.get("email")
-        self.password_digest=bcrypt.hashpw(kwargs.get("password").encode("utf8"),bcrypt.gensalt(rounds=13))
+    def __init__(self, **kwargs):
+        self.email = kwargs.get("email")
+        self.password_digest = bcrypt.hashpw(kwargs.get("password").encode("utf8"), bcrypt.gensalt(rounds=13))
         self.renew_session()
        
     def _urlsafe_base_64(self):
         return hashlib.sha1(os.urandom(64)).hexdigest()
     
     def renew_session(self):
-        self.session_token=self._urlsafe_base_64()
-        self.session_expiration=datetime.datetime.now()+datetime.timedelta(days=1)
-        self.update_token=self._urlsafe_base_64()
+        self.session_token = self._urlsafe_base_64()
+        self.session_expiration = datetime.datetime.now()+datetime.timedelta(days=1)
+        self.update_token = self._urlsafe_base_64()
      
-    def verify_password(self,password):
+    def verify_password(self, password):
         return bcrypt.checkpw(password.encode("utf8"),self.password_digest)
     
-    def verify_session_token(self,session_token):
-        return session_token==self.session_token and datetime.datetime.now()<self.session_expiration
+    def verify_session_token(self, session_token):
+        return session_token == self.session_token and datetime.datetime.now() < self.session_expiration
     
-    def verify_update_token(self,update_token):
-        return update_token==self.update_token
+    def verify_update_token(self, update_token):
+        return update_token == self.update_token
        
     def serialize_without_courses(self):
         return {
