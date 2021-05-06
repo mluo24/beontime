@@ -1,5 +1,10 @@
 from flask_sqlalchemy import SQLAlchemy
 
+import bcrypt
+import datetime
+import hashlib
+import os
+
 db = SQLAlchemy()
 
 
@@ -82,7 +87,7 @@ class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String, nullable=False)
     netid = db.Column(db.String, nullable=False)
-    courses = db.relationship("Association", back_populates="user")
+    #courses = db.relationship("Association", back_populates="user")
     
     email=db.Column(db.String,nullable=False,unique=True)
     password_digest=db.Column(db.String,nullable=False)
