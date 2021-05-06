@@ -1,9 +1,11 @@
+
+  
 import json
 
 from flask import Flask
 from db import db, Course, Assignment, User
-from flask import request
 
+from flask import request
 
 app = Flask(__name__)
 
@@ -67,11 +69,11 @@ def login():
     body = json.loads(request.data)
     email=body.get("email")
     password=body.get("password")
-    if email is None or password is NOne:
+    if email is None or password is None:
         return json.dumps({"error": "Invalid email or password"})
     user=get_user_by_email(email)
-    success=user is not None and user.verigy.password(password)
-    if not sucess:
+    success=user is not None and user.verify.password(password)
+    if not success:
         return json.dumps({"error": "Incorrect email or password"})
     return json.dumps(
         {
@@ -85,7 +87,7 @@ def login():
 #User register endpoint
 @app.route('/register/',methods=["POST"])
 def register_account():
-    body = json.loads(request.data)
+    body=json.loads(request.data)
     email=body.get("email")
     password=body.get("password")
     if email is None or password is None:
@@ -148,3 +150,4 @@ def secret_message():
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000, debug=True)
+
