@@ -74,7 +74,7 @@ def login():
     return json.dumps(
         {
             "session_token":user.session_token,
-            "session_expiration":str(user.session_expiration)，
+            "session_expiration":str(user.session_expiration),
             "update_token":user.update_token,
         }
     )
