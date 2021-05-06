@@ -14,6 +14,27 @@ app.config["SQLALCHEMY_ECHO"] = True
 db.init_app(app)
 with app.app_context():
     db.create_all()
+    
+    
+def get_user_by_email(email):
+    return User.query.filter(User.email==email).first()
+
+def get_user_by_session_token(session_token):
+    return User.query.filter(User.session_token==session_token).first()
+
+def get_user_by_update_token(update_token):
+    return User.query.filter(User.update_token==update_token).forst()
+
+def extract_token(request):
+    auth_header=request.headers.get("Authorization")
+    if auth_header is None:
+        return False, json.dumps({"error": "Missing auth header"})
+    
+    bearer_token=auth_header.replace("Bearer ","").strip()
+    if bearer_token is None or not bearer_token:
+        return False, json.dumps({"error": "Invalid auth header"})
+    return True, bearer_token
+
 
 
 # generalized response formats
@@ -37,6 +58,29 @@ def get_courses():
 def get_assignments():
     assignments = [a.serialize() for a in Assignment.query.all()]
     return success_response(assignments)
+
+#User register endpoint
+@app.route('/register/',methods=["POST"])
+def register_account():
+    body = json.loads(request.data)
+    email=body.get("email")
+    password=body.get("password")
+    if email is None or password is NOne:
+        return json.dumps({"error": "Invalid email or password"})
+    optional_user=get_user_by_email(email)
+    if optional_user is not None:
+        return json.dumps({"error": "User already exists."})
+    User=User(email=email,password=password)
+    db.sessions.add(user)
+    db.session.commit()
+    return json.dumps(
+        {
+            "session_token":user.session_token,
+            "session_expiration":str(user.session_expiration)，
+            "update_token":user.update_token,
+        }
+    )
+
 
 
 if __name__ == "__main__":
