@@ -91,6 +91,11 @@ class User(db.Model):
     # def get_role_in_course(self, course_id):
     #     row = Association.query.filter_by(course_id=course_id, user_id=self.id).first()
     #     return row.role
+    
+    def __init__(self,**kwargs):
+        self.email=kwargs.get("email")
+        self.password_digest=bcrypt.hashpw(kwargs.get("password").encode("utf8"),bcrypt.gensalt(rounds=13))
+        self.renew_session()
 
     def serialize_without_courses(self):
         return {
