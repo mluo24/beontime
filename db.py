@@ -1,5 +1,4 @@
 from flask_sqlalchemy import SQLAlchemy
-
 import bcrypt
 import datetime
 import hashlib
@@ -31,14 +30,14 @@ class Course(db.Model):
     __tablename__ = "courses"
     id = db.Column(db.Integer, primary_key=True)
     code = db.Column(db.String, nullable=False)
-    name = db.Column(db.String, nullable=False)
+    #name = db.Column(db.String, nullable=False)
     weekly_schedule = db.Column(db.String, nullable=False)
     assignments = db.relationship("Assignment", cascade="delete")
     # users = db.relationship("Association", back_populates="course")
 
     def __init__(self, **kwargs):
         self.code = kwargs.get("code")
-        self.name = kwargs.get("name")
+        #self.name = kwargs.get("name")
         self.weekly_schedule = kwargs.get("weekly_schedule")
 
     def serialize(self):
