@@ -83,6 +83,10 @@ class User(db.Model):
     name = db.Column(db.String, nullable=False)
     netid = db.Column(db.String, nullable=False)
     courses = db.relationship("Association", back_populates="user")
+    email=db.Column(db.String,nullable=False,unique=True)
+    password_digest=db.Column(db.String,nullable=False)
+    session_token=db.Column(db.String,nullable=False,unique=True)
+    update_token=db.Column(db.String,nullable=False,unique=True)
 
     # def get_role_in_course(self, course_id):
     #     row = Association.query.filter_by(course_id=course_id, user_id=self.id).first()
