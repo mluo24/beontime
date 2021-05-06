@@ -1,4 +1,8 @@
 from flask_sqlalchemy import SQLAlchemy
+import bcrypt
+import datetime
+import hashlib
+import os
 
 db = SQLAlchemy()
 
@@ -26,14 +30,14 @@ class Course(db.Model):
     __tablename__ = "courses"
     id = db.Column(db.Integer, primary_key=True)
     code = db.Column(db.String, nullable=False)
-    name = db.Column(db.String, nullable=False)
+    #name = db.Column(db.String, nullable=False)
     weekly_schedule = db.Column(db.String, nullable=False)
     assignments = db.relationship("Assignment", cascade="delete")
     # users = db.relationship("Association", back_populates="course")
 
     def __init__(self, **kwargs):
         self.code = kwargs.get("code")
-        self.name = kwargs.get("name")
+        #self.name = kwargs.get("name")
         self.weekly_schedule = kwargs.get("weekly_schedule")
 
     def serialize(self):
@@ -80,12 +84,14 @@ class Assignment(db.Model):
 class User(db.Model):
     __tablename__ = "users"
     id = db.Column(db.Integer, primary_key=True)
-    name = db.Column(db.String, nullable=False)
-    netid = db.Column(db.String, nullable=False)
-    courses = db.relationship("Association", back_populates="user")
+    #name = db.Column(db.String, nullable=False)
+    #netid = db.Column(db.String, nullable=False)
+    #courses = db.relationship("Association", back_populates="user")
+    
     email=db.Column(db.String,nullable=False,unique=True)
     password_digest=db.Column(db.String,nullable=False)
     session_token=db.Column(db.String,nullable=False,unique=True)
+    session_expiration=db.Column(db.DateTime,nullable=False)
     update_token=db.Column(db.String,nullable=False,unique=True)
 
     # def get_role_in_course(self, course_id):
@@ -96,7 +102,24 @@ class User(db.Model):
         self.email=kwargs.get("email")
         self.password_digest=bcrypt.hashpw(kwargs.get("password").encode("utf8"),bcrypt.gensalt(rounds=13))
         self.renew_session()
-
+       
+    def _urlsafe_base_64(self):
+        return hashlib.sha1(os.urandom(64)).hexdigest()
+    
+    def renew_session(self):
+        self.session_token=self._urlsafe_base_64()
+        self.session_expiration=datetime.datetime.now()+datetime.timedelta(days=1)
+        self.update_token=self._urlsafe_base_64()
+     
+    def verify_password(self,password):
+        return bcrypt.checkpw(password.encode("utf8"),self.password_digest)
+    
+    def verify_session_token(self,session_token):
+        return session_token==self.session_token and datetime.datetime.now()<self.session_expiration
+    
+    def verify_update_token(self,update_token):
+        return update_token==self.update_token
+       
     def serialize_without_courses(self):
         return {
             "id": self.id,
