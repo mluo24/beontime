@@ -51,10 +51,24 @@ def success_response(data, code=200):
 def failure_response(message, code=404):
     return json.dumps({"success": False, "error": message}), code
 
+
+BASE_SUBJ_URL = "https://classes.cornell.edu/api/2.0/config/subjects.json?roster=SP21"
+
+BASE_SEARCH_URL = "https://classes.cornell.edu/api/2.0/search/classes.json?roster=SP21"
+
+
 # --------------------ENDPOINTS START HERE--------------------
+#     def get_all_subjects(self):
+#         res = requests.get(self.api_url_search + f"&subject={self.subject}")
+#         body = res.json()
+#         return body
+#
+#     def get_all_courses_from_subjects(self):
+#         res = requests.get(f"https://classes.cornell.edu/api/2.0/search/classes.json?roster=SP21&subject={self.subject}")
+#         body = res.json()
+#         return body
 
-
-# course endpoints
+# course endpoints (includes external APIs
 @app.route('/api/courses/')
 def get_courses():
     courses = [c.serialize() for c in Course.query.all()]
@@ -68,19 +82,36 @@ def get_courses_api():
     return success_response(body["data"]["classes"])
 
 
-@app.route('/api/courses/<subject>/')
-def get_courses_from_subject(subject):
+@app.route('/api/courses-api/subjects/')
+def get_all_subjects_api():
+    res = requests.get(BASE_SUBJ_URL)
+    body = res.json()
+    data = body["data"]["subjects"]
+    return success_response(data)
+
+
+@app.route('/api/courses-api/<subject>/')
+def get_courses_from_subject_api(subject):
     subject = subject.upper()
-    res = requests.get(f"https://classes.cornell.edu/api/2.0/search/classes.json?roster=SP21&subject={subject}")
+    res = requests.get(BASE_SEARCH_URL + f"&subject={subject}")
     body = res.json()
     if body["status"] == "error":
         return failure_response("Subject not found.")
     return success_response(body["data"]["classes"])
 
 
-@app.route('/api/courses/<subject>/<number>/')
-def get_course_from_subject_and_number(subject, number):
-    res = requests.get(f"https://classes.cornell.edu/api/2.0/search/classes.json?roster=SP21&subject={subject}&q={number}")
+@app.route('/api/courses-api/<subject>/<number>/')
+def get_course_from_subject_and_number_api(subject, number):
+    res = requests.get(BASE_SEARCH_URL + f"&subject={subject}&q={number}")
+    body = res.json()
+    if body["status"] == "error":
+        return failure_response("Class not found.")
+    return success_response(body["data"]["classes"][0])
+
+
+@app.route('/api/courses/<string:subject>/<int:number>/assignments/')
+def get_assignments_from_course(subject, number):
+    res = requests.get(BASE_SEARCH_URL + f"&subject={subject}&q={number}")
     body = res.json()
     if body["status"] == "error":
         return failure_response("Class not found.")
@@ -89,9 +120,56 @@ def get_course_from_subject_and_number(subject, number):
 
 # assignment endpoints
 @app.route('/api/assignments/')
-def get_assignments():
+def get_all_assignments():
     assignments = [a.serialize() for a in Assignment.query.all()]
     return success_response(assignments)
+
+
+@app.route('/api/assignments/')
+def get_all_assignments_by_group():
+    # do a sort by group
+    assignments = [a.serialize() for a in Assignment.query.all()]
+    return success_response(assignments)
+
+
+@app.route('/api/assignments/<int:assignment_id>')
+def get_assignment(assignment_id):
+    assignment = Assignment.query.filter_by(id=assignment_id).first()
+    if assignment is None:
+        return failure_response("Assignment not found!")
+    return success_response(assignment.serialize())
+
+
+@app.route("/api/assignment/<int:assignment_id>/", methods=["POST"])
+def update_assignment(assignment_id):
+    assignment = Assignment.query.filter_by(id=assignment_id).first()
+    if assignment is None:
+        return failure_response("Assignment not found")
+    body = json.loads(request.data)
+    title = body.get("title", assignment.title)
+    due_date = body.get("due_date", assignment.due_date)
+    assignment.title = title
+    assignment.due_date = due_date
+    assignment.done = assignment.done
+
+    db.session.commit()
+    return success_response(assignment.serialize())
+
+
+@app.route('/api/assignments/<int:assignment_id>/done', methods=["POST"])
+def mark_assignment_as_done(assignment_id):
+    assignment = Assignment.query.filter_by(id=assignment_id).first()
+    if assignment is None:
+        return failure_response("Assignment not found")
+
+    # body = json.loads(request.data)
+    title = assignment.title
+    due_date = assignment.due_date
+    assignment.title = title
+    assignment.due_date = due_date
+    assignment.done = True
+    db.session.commit()
+    return success_response(assignment.serialize())
 
 
 # User login endpoint

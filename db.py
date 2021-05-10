@@ -7,14 +7,15 @@ import os
 
 db = SQLAlchemy()
 
+association_table_user_course = db.Table("association_user_course", db.Model.metadata,
+                                         db.Column("user_id", db.Integer, db.ForeignKey("users.id")),
+                                         db.Column("course_id", db.Integer, db.ForeignKey("courses.id")),
+                                         )
 
-# EVERYTHING BELOW IS COPIED DIRECTLY FROM PA4. PLEASE EDIT IT TO BE THE CORRECT FORM
-# I commented out what I think we don't need, I only kept it so things can compile/make sense
-
-association_table = db.Table("association", db.Model.metadata,
-                             db.Column("user_id", db.Integer, db.ForeignKey("users.id")),
-                             db.Column("course_id", db.Integer, db.ForeignKey("courses.id")),
-                             )
+association_table_user_assignment = db.Table("association_user_assignment", db.Model.metadata,
+                                             db.Column("user_id", db.Integer, db.ForeignKey("users.id")),
+                                             db.Column("assignment_id", db.Integer, db.ForeignKey("assignments.id")),
+                                             )
 
 
 # model based on the api
@@ -24,23 +25,23 @@ class Course(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     subject = db.Column(db.String, nullable=False)
     code = db.Column(db.Integer, nullable=False)
-    # users = db.relationship("Association", back_populates="course")
-    api_url = "https://classes.cornell.edu/api/2.0/search/classes.json?roster=SP21"
+    users = db.relationship("User", back_populates="courses")
+    assignments = db.relationship("Assignment", cascade="delete")
+    # api_url_search = "https://classes.cornell.edu/api/2.0/search/classes.json?roster=SP21"
 
     def __init__(self, **kwargs):
         self.subject = kwargs.get("subject")
         self.code = kwargs.get("code")
 
-    def get_all_subjects(self):
-        res = requests.get(f"https://classes.cornell.edu/api/2.0/search/classes.json?roster=SP21&subject={self.subject}")
-        body = res.json()
-        return body
-
-    def get_course_from_api(self):
-        res = requests.get(
-            f"https://classes.cornell.edu/api/2.0/search/classes.json?roster=SP21&subject={self.subject}&q={self.code}")
-        body = res.json()
-        return body
+    # gets the
+    # def get_data_from_class(self):
+    #     pass
+    #
+    # def get_course_data_from_api(self):
+    #     res = requests.get(
+    #         f"https://classes.cornell.edu/api/2.0/search/classes.json?roster=SP21&subject={self.subject}&q={self.code}")
+    #     body = res.json()
+    #     return body
 
     def serialize(self):
         return {
@@ -59,8 +60,11 @@ class Assignment(db.Model):
     __tablename__ = "assignments"
     id = db.Column(db.Integer, primary_key=True)
     title = db.Column(db.String, nullable=False)
-    due_date = db.Column(db.DateTime)
+    due_date = db.Column(db.DateTime, nullable=False)
     course_id = db.Column(db.Integer, db.ForeignKey("courses.id"), nullable=False)
+    priority = db.Column(db.Integer, nullable=False)
+    done = db.Column(db.Boolean, nullable=False)
+    users = db.relationship("User", back_populates="assignments")
 
     def serialize_without_course(self):
         return {
@@ -86,7 +90,8 @@ class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     #name = db.Column(db.String, nullable=False)
     #netid = db.Column(db.String, nullable=False)
-    #courses = db.relationship("Association", back_populates="user")
+    courses = db.relationship("Course", back_populates="users")
+    assignments = db.relationship("Assignment", back_populates="users")
     
     email = db.Column(db.String, nullable=False, unique=True)
     password_digest = db.Column(db.String, nullable=False)
@@ -119,11 +124,11 @@ class User(db.Model):
     def serialize_without_courses(self):
         return {
             "id": self.id,
-            "name": self.name,
-            "netid": self.netid
+            # "name": self.name,
+            # "netid": self.netid
         }
 
     def serialize(self):
         data = self.serialize_without_courses()
-        data["courses"] = [s.course.serialize() for s in self.courses]
+        data["courses"] = [s.serialize() for s in self.courses]
         return data
