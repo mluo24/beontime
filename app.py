@@ -29,7 +29,7 @@ def get_user_by_session_token(session_token):
 
 
 def get_user_by_update_token(update_token):
-    return User.query.filter(User.update_token == update_token).forst()
+    return User.query.filter(User.update_token == update_token).first()
 
 
 def extract_token(request):
@@ -71,105 +71,129 @@ BASE_SEARCH_URL = "https://classes.cornell.edu/api/2.0/search/classes.json?roste
 # course endpoints (includes external APIs
 @app.route('/api/courses/')
 def get_courses():
-    courses = [c.serialize() for c in Course.query.all()]
-    return success_response(courses)
+    if(secret_message().find("message")!=-1):
+    
+        courses = [c.serialize() for c in Course.query.all()]
+        return success_response(courses)
+    return failure_response("Fail to log in")
+    
 
 
 @app.route('/api/coursesextra/')
 def get_courses_api():
-    res = requests.get("https://classes.cornell.edu/api/2.0/search/classes.json?roster=SP21&subject=CS")
-    body = res.json()
-    return success_response(body["data"]["classes"])
+    if(secret_message().find("message")!=-1):
+        res = requests.get("https://classes.cornell.edu/api/2.0/search/classes.json?roster=SP21&subject=CS")
+        body = res.json()
+        return success_response(body["data"]["classes"])
+    return failure_response("Fail to log in")
 
 
 @app.route('/api/courses-api/subjects/')
 def get_all_subjects_api():
-    res = requests.get(BASE_SUBJ_URL)
-    body = res.json()
-    data = body["data"]["subjects"]
-    return success_response(data)
+    if(secret_message().find("message")!=-1):
+        res = requests.get(BASE_SUBJ_URL)
+        body = res.json()
+        data = body["data"]["subjects"]
+        return success_response(data)
+    return failure_response("Fail to log in")
 
 
 @app.route('/api/courses-api/<subject>/')
 def get_courses_from_subject_api(subject):
-    subject = subject.upper()
-    res = requests.get(BASE_SEARCH_URL + f"&subject={subject}")
-    body = res.json()
-    if body["status"] == "error":
-        return failure_response("Subject not found.")
-    return success_response(body["data"]["classes"])
+    if(secret_message().find("message")!=-1):
+        subject = subject.upper()
+        res = requests.get(BASE_SEARCH_URL + f"&subject={subject}")
+        body = res.json()
+        if body["status"] == "error":
+            return failure_response("Subject not found.")
+        return success_response(body["data"]["classes"])
+    return failure_response("Fail to log in")
 
 
 @app.route('/api/courses-api/<subject>/<number>/')
 def get_course_from_subject_and_number_api(subject, number):
-    res = requests.get(BASE_SEARCH_URL + f"&subject={subject}&q={number}")
-    body = res.json()
-    if body["status"] == "error":
-        return failure_response("Class not found.")
-    return success_response(body["data"]["classes"][0])
+    if(secret_message().find("message")!=-1):
+        res = requests.get(BASE_SEARCH_URL + f"&subject={subject}&q={number}")
+        body = res.json()
+        if body["status"] == "error":
+            return failure_response("Class not found.")
+        return success_response(body["data"]["classes"][0])
+    return failure_response("Fail to log in")
 
 
 @app.route('/api/courses/<string:subject>/<int:number>/assignments/')
 def get_assignments_from_course(subject, number):
-    res = requests.get(BASE_SEARCH_URL + f"&subject={subject}&q={number}")
-    body = res.json()
-    if body["status"] == "error":
-        return failure_response("Class not found.")
-    return success_response(body["data"]["classes"][0])
+    if(secret_message().find("message")!=-1):
+        res = requests.get(BASE_SEARCH_URL + f"&subject={subject}&q={number}")
+        body = res.json()
+        if body["status"] == "error":
+            return failure_response("Class not found.")
+        return success_response(body["data"]["classes"][0])
+    return failure_response("Fail to log in")
 
 
 # assignment endpoints
 @app.route('/api/assignments/')
 def get_all_assignments():
-    assignments = [a.serialize() for a in Assignment.query.all()]
-    return success_response(assignments)
+    if(secret_message().find("message")!=-1):
+        assignments = [a.serialize() for a in Assignment.query.all()]
+        return success_response(assignments)
+    return failure_response("Fail to log in")
 
 
 @app.route('/api/assignments/')
 def get_all_assignments_by_group():
-    # do a sort by group
-    assignments = [a.serialize() for a in Assignment.query.all()]
-    return success_response(assignments)
+    if(secret_message().find("message")!=-1):
+        # do a sort by group
+        assignments = [a.serialize() for a in Assignment.query.all()]
+        return success_response(assignments)
+    return failure_response("Fail to log in")       
 
 
 @app.route('/api/assignments/<int:assignment_id>')
 def get_assignment(assignment_id):
-    assignment = Assignment.query.filter_by(id=assignment_id).first()
-    if assignment is None:
-        return failure_response("Assignment not found!")
-    return success_response(assignment.serialize())
+    if(secret_message().find("message")!=-1):
+        assignment = Assignment.query.filter_by(id=assignment_id).first()
+        if assignment is None:
+            return failure_response("Assignment not found!")
+        return success_response(assignment.serialize())
+    return failure_response("Fail to log in")
 
 
 @app.route("/api/assignment/<int:assignment_id>/", methods=["POST"])
 def update_assignment(assignment_id):
-    assignment = Assignment.query.filter_by(id=assignment_id).first()
-    if assignment is None:
-        return failure_response("Assignment not found")
-    body = json.loads(request.data)
-    title = body.get("title", assignment.title)
-    due_date = body.get("due_date", assignment.due_date)
-    assignment.title = title
-    assignment.due_date = due_date
-    assignment.done = assignment.done
+    if(secret_message().find("message")!=-1):
+        assignment = Assignment.query.filter_by(id=assignment_id).first()
+        if assignment is None:
+            return failure_response("Assignment not found")
+        body = json.loads(request.data)
+        title = body.get("title", assignment.title)
+        due_date = body.get("due_date", assignment.due_date)
+        assignment.title = title
+        assignment.due_date = due_date
+        assignment.done = assignment.done
 
-    db.session.commit()
-    return success_response(assignment.serialize())
+        db.session.commit()
+        return success_response(assignment.serialize())
+    return failure_response("Fail to log in")
 
 
 @app.route('/api/assignments/<int:assignment_id>/done', methods=["POST"])
 def mark_assignment_as_done(assignment_id):
-    assignment = Assignment.query.filter_by(id=assignment_id).first()
-    if assignment is None:
-        return failure_response("Assignment not found")
+    if(secret_message().find("message")!=-1):
+        assignment = Assignment.query.filter_by(id=assignment_id).first()
+        if assignment is None:
+            return failure_response("Assignment not found")
 
-    # body = json.loads(request.data)
-    title = assignment.title
-    due_date = assignment.due_date
-    assignment.title = title
-    assignment.due_date = due_date
-    assignment.done = True
-    db.session.commit()
-    return success_response(assignment.serialize())
+        # body = json.loads(request.data)
+        title = assignment.title
+        due_date = assignment.due_date
+        assignment.title = title
+        assignment.due_date = due_date
+        assignment.done = True
+        db.session.commit()
+        return success_response(assignment.serialize())
+    return failure_response("Fail to log in")
 
 
 # User login endpoint
@@ -181,7 +205,7 @@ def login():
     if email is None or password is None:
         return json.dumps({"error": "Invalid email or password"})
     user = get_user_by_email(email)
-    success = user is not None and user.verify.password(password)
+    success = user is not None and user.verify_password(password)
     if not success:
         return json.dumps({"error": "Incorrect email or password"})
     return json.dumps(
@@ -239,7 +263,7 @@ def update_session():
     )
 
 
-# User message endpoint
+
 @app.route('/secret/', methods=["GET"])
 def secret_message():
     success, session_token = extract_token(request)
@@ -252,6 +276,8 @@ def secret_message():
         return json.dumps({"error": "Invalid session token"})
 
     return json.dumps({"message": "You have successfully implemented sessions."})
+
+
 
 
 if __name__ == "__main__":
