@@ -25,7 +25,7 @@ class Course(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     subject = db.Column(db.String, nullable=False)
     code = db.Column(db.Integer, nullable=False)
-    users = db.relationship("User", back_populates="courses")
+    users = db.relationship("User", secondary=association_table_user_course, back_populates="courses")
     assignments = db.relationship("Assignment", cascade="delete")
     # api_url_search = "https://classes.cornell.edu/api/2.0/search/classes.json?roster=SP21"
 
@@ -64,7 +64,7 @@ class Assignment(db.Model):
     course_id = db.Column(db.Integer, db.ForeignKey("courses.id"), nullable=False)
     priority = db.Column(db.Integer, nullable=False)
     done = db.Column(db.Boolean, nullable=False)
-    users = db.relationship("User", back_populates="assignments")
+    users = db.relationship("User", secondary=association_table_user_assignment, back_populates="assignments")
 
     def serialize_without_course(self):
         return {
@@ -90,8 +90,8 @@ class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     #name = db.Column(db.String, nullable=False)
     #netid = db.Column(db.String, nullable=False)
-    courses = db.relationship("Course", back_populates="users")
-    assignments = db.relationship("Assignment", back_populates="users")
+    courses = db.relationship("Course",  secondary=association_table_user_course,back_populates="users")
+    assignments = db.relationship("Assignment", secondary=association_table_user_assignment, back_populates="users")
     
     email = db.Column(db.String, nullable=False, unique=True)
     password_digest = db.Column(db.String, nullable=False)
