@@ -223,12 +223,14 @@ def register_account():
     body = json.loads(request.data)
     email = body.get("email")
     password = body.get("password")
+    name = body.get("name")
+    netid = body.get("netid")
     if email is None or password is None:
         return json.dumps({"error": "Invalid email or password"})
     optional_user = get_user_by_email(email)
     if optional_user is not None:
         return json.dumps({"error": "User already exists."})
-    user = User(email=email, password=password)
+    user = User(email=email, password=password,name=name,netid=netid)
     db.session.add(user)
     db.session.commit()
     return json.dumps(
@@ -236,6 +238,8 @@ def register_account():
             "session_token": user.session_token,
             "session_expiration": str(user.session_expiration),
             "update_token": user.update_token,
+            "name": name,
+            "netid":netid
         }
     )
 
