@@ -3,6 +3,7 @@ from flask_sqlalchemy import SQLAlchemy
 import bcrypt
 import datetime
 import hashlib
+import arrow
 import os
 
 db = SQLAlchemy()
@@ -25,33 +26,27 @@ class Course(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     subject = db.Column(db.String, nullable=False)
     code = db.Column(db.Integer, nullable=False)
+    name = db.Column(db.String, nullable=False)
+    days_on = db.Column(db.ARRAY(db.String), nullable=True)
+    time = db.Column(db.Time, nullable=True)
     users = db.relationship("User", secondary=association_table_user_course, back_populates="courses")
     assignments = db.relationship("Assignment", cascade="delete")
-    # api_url_search = "https://classes.cornell.edu/api/2.0/search/classes.json?roster=SP21"
 
     def __init__(self, **kwargs):
         self.subject = kwargs.get("subject")
         self.code = kwargs.get("code")
-
-    # gets the
-    # def get_data_from_class(self):
-    #     pass
-    #
-    # def get_course_data_from_api(self):
-    #     res = requests.get(
-    #         f"https://classes.cornell.edu/api/2.0/search/classes.json?roster=SP21&subject={self.subject}&q={self.code}")
-    #     body = res.json()
-    #     return body
+        self.name = kwargs.get("name")
+        self.days_on = kwargs.get("days_on")
+        self.time = kwargs.get("time")
 
     def serialize(self):
         return {
             "id": self.id,
+            "subject": self.subject,
             "code": self.code,
-            "name": self.name
-            # "instructors": [s.user.serialize_without_courses() for s in self.users if s.user.get_role_in_course(self.id)
-            #                 == "instructor"],
-            # "students": [s.user.serialize_without_courses() for s in self.users if s.user.get_role_in_course(self.id)
-            #              == "student"]
+            "name": self.name,
+            "days_on": self.days_on,
+            "time": self.time
         }
 
 
@@ -61,16 +56,23 @@ class Assignment(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     title = db.Column(db.String, nullable=False)
     due_date = db.Column(db.DateTime, nullable=False)
-    course_id = db.Column(db.Integer, db.ForeignKey("courses.id"), nullable=False)
-    priority = db.Column(db.Integer, nullable=False)
+    description = db.Column(db.String, nullable=True)
+    priority = db.Column(db.String, nullable=True)
+    type = db.Column(db.String, nullable=False)
     done = db.Column(db.Boolean, nullable=False)
+    course_id = db.Column(db.Integer, db.ForeignKey("courses.id"), nullable=False)
     users = db.relationship("User", secondary=association_table_user_assignment, back_populates="assignments")
 
     def serialize_without_course(self):
         return {
             "id": self.id,
             "title": self.title,
-            "due_date": self.due_date
+            "due_date": self.due_date,
+            "relative_due_date": arrow.get(self.due_date).humanize(),
+            "description": self.description,
+            "priority": self.priority,
+            "type": self.type,
+            "done": self.done
         }
 
     def serialize(self):
