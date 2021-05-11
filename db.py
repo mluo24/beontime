@@ -88,8 +88,8 @@ class Assignment(db.Model):
 class User(db.Model):
     __tablename__ = "users"
     id = db.Column(db.Integer, primary_key=True)
-    #name = db.Column(db.String, nullable=False)
-    #netid = db.Column(db.String, nullable=False)
+    name = db.Column(db.String, nullable=True)
+    netid = db.Column(db.String, nullable=True)
     courses = db.relationship("Course",  secondary=association_table_user_course,back_populates="users")
     assignments = db.relationship("Assignment", secondary=association_table_user_assignment, back_populates="users")
     
@@ -103,6 +103,8 @@ class User(db.Model):
         self.email = kwargs.get("email")
         self.password_digest = bcrypt.hashpw(kwargs.get("password").encode("utf8"), bcrypt.gensalt(rounds=13))
         self.renew_session()
+        self.name=kwargs.get("name")
+        self.netid=kwargs.get("netid")
        
     def _urlsafe_base_64(self):
         return hashlib.sha1(os.urandom(64)).hexdigest()
@@ -124,8 +126,8 @@ class User(db.Model):
     def serialize_without_courses(self):
         return {
             "id": self.id,
-            # "name": self.name,
-            # "netid": self.netid
+            "name": self.name,
+            "netid": self.netid
         }
 
     def serialize(self):
