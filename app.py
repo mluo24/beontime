@@ -1,7 +1,9 @@
 import json
 
+import arrow
 from flask import Flask
 import requests
+import datetime
 
 from db import db, Course, Assignment, User
 
@@ -77,6 +79,14 @@ def extract_relevant_course_data(class_data):
     }
 
 
+def get_datetime_from_string(d):
+    return datetime.datetime.strptime(d, '%a, %b %d, %Y @ %I:%M%p')
+
+
+def get_time_from_string(t):
+    return datetime.datetime.strptime(t, '%I:%M%p').time()
+
+
 # generalized response formats
 def success_response(data, code=200):
     return json.dumps({"success": True, "data": data}), code
@@ -92,15 +102,6 @@ BASE_SEARCH_URL = "https://classes.cornell.edu/api/2.0/search/classes.json?roste
 
 
 # --------------------ENDPOINTS START HERE--------------------
-#     def get_all_subjects(self):
-#         res = requests.get(self.api_url_search + f"&subject={self.subject}")
-#         body = res.json()
-#         return body
-#
-#     def get_all_courses_from_subjects(self):
-#         res = requests.get(f"https://classes.cornell.edu/api/2.0/search/classes.json?roster=SP21&subject={self.subject}")
-#         body = res.json()
-#         return body
 
 # course endpoints (includes external APIs)
 
@@ -130,13 +131,17 @@ def get_course_from_subject_and_number_api(subject, number):
     if body["status"] == "error":
         return failure_response("Class not found.")
     class_data = body["data"]["classes"][0]
-    # rel_data = {
-    #     "subject": class_data["subject"],
-    #     "code": class_data["catalogNbr"],
-    #     "name": class_data["titleLong"],
-    #     # "days_on": class_data["enrollGroups"][0]["classSections"]
-    # }
     return success_response(extract_relevant_course_data(class_data))
+
+
+@app.route('/api/courses/')
+def get_all_courses():
+    if secret_message().find("message") != -1:
+        success, session_token = extract_token(request)
+        user = get_user_by_session_token(session_token)
+        courses = [c.serialize() for c in user.courses]
+        return success_response(courses)
+    return failure_response("Failed to authenticate" + secret_message().get("error"), 401)
 
 
 @app.route('/api/courses/', methods=["POST"])
@@ -148,23 +153,33 @@ def add_course():
         name = body.get("name")
         days_on = body.get("days_on")
         time = body.get("time")
-        if code is None or name is None or days_on is None or time is None:
-            return failure_response("All fields are required.", 400)
+        success, session_token = extract_token(request)
+        user = get_user_by_session_token(session_token)
+        user_id = user.id
+        if subject is None or code is None or name is None:
+            return failure_response("Subject, code, and name fields are required.", 400)
         new_course = Course(
             subject=subject,
             code=code,
             name=name,
             days_on=days_on,
-            time=time
+            time=get_time_from_string(time),
+            user_id=user_id
         )
         db.session.add(new_course)
         db.session.commit()
-        success, session_token = extract_token(request)
-        user = get_user_by_session_token(session_token)
-        user.courses.append(new_course)
-        db.session.commit()
         return success_response(new_course.serialize(), 201)
-    return failure_response("Fail to log in")
+    return failure_response("Fail to log in", 401)
+
+
+@app.route("/api/courses/<int:course_id>/")
+def get_course_by_id(course_id):
+    if secret_message().find("message") != -1:
+        course = Course.query.filter_by(id=course_id).first()
+        if course is None:
+            return failure_response("Course not found")
+        return success_response(course.serialize())
+    return failure_response("Fail to log in", 401)
 
 
 @app.route("/api/courses/<int:course_id>/", methods=["POST"])
@@ -178,7 +193,7 @@ def update_course(course_id):
         code = body.get("code", course.code)
         name = body.get("name", course.name)
         days_on = body.get("days_on", course.days_on)
-        time = body.get("time", course.time)
+        time = get_time_from_string(body.get("time", course.time))
         course.subject = subject
         course.code = code
         course.name = name
@@ -187,32 +202,65 @@ def update_course(course_id):
 
         db.session.commit()
         return success_response(course.serialize())
-    return failure_response("Fail to log in")
+    return failure_response("Fail to log in", 401)
 
 
 @app.route('/api/courses/<int:course_id>/', methods=["DELETE"])
 def delete_course(course_id):
-    if(secret_message().find("message")!=-1):
-        course = Assignment.query.filter_by(id=course_id).first()
+    if secret_message().find("message") != -1:
+        course = Course.query.filter_by(id=course_id).first()
         if course is None:
             return failure_response("Course not found!")
         db.session.delete(course)
         db.session.commit()
         return success_response(course.serialize())
-    return failure_response("Fail to log in")
+    return failure_response("Fail to log in", 401)
 
 
 @app.route('/api/courses/<int:course_id>/assignments/')
 def get_assignments_from_course(course_id):
-    if(secret_message().find("message")!=-1):
+    if secret_message().find("message") != -1:
+        group = request.args.get('group', "none")
         course = Course.query.filter_by(id=course_id).first()
         if course is None:
             return failure_response("Class not found.")
-        assignments_serialized = []
-        for a in course.assignments:
-            assignments_serialized.append(a.serialize_without_course())
+        # assignments_serialized = []
+        # for a in course.assignments:
+        #     assignments_serialized.append(a.serialize_without_course())
+        current_assignments_total = [a for a in course.assignments if not a.done]
+        if group == "priority":
+            assignments_serialized = {
+                "high": [a.serialize() for a in current_assignments_total if a.priority == "high"],
+                "medium": [a.serialize() for a in current_assignments_total if a.priority == "medium"],
+                "low": [a.serialize() for a in current_assignments_total if a.priority == "low"],
+                "none": [a.serialize() for a in current_assignments_total if a.priority == "none"]
+            }
+        elif group == "type":
+            assignments_serialized = {
+                "assignment": [a.serialize() for a in current_assignments_total if a.type == "assignment"],
+                "project": [a.serialize() for a in current_assignments_total if a.type == "project"],
+                "quiz": [a.serialize() for a in current_assignments_total if a.type == "quiz"],
+                "exam": [a.serialize() for a in current_assignments_total if a.type == "exam"],
+            }
+        else:
+            today = [a for a in current_assignments_total
+                     if a.due_date.date() == datetime.datetime.today().date()]
+            tomorrow = [a for a in current_assignments_total
+                        if a.due_date.date() == (datetime.datetime.today() + datetime.timedelta(days=1)).date()]
+            next_seven_days = [a for a in current_assignments_total
+                               if a.due_date.date() <= (datetime.datetime.today() + datetime.timedelta(days=7)).date()
+                               and not (a in today) and not (a in tomorrow)]
+            for_later = [a for a in current_assignments_total
+                         if not (a in today) and not (a in tomorrow) and not (a in next_seven_days)]
+            assignments_serialized = {
+                "for_today": [a.serialize() for a in today],
+                "for_tomorrow": [a.serialize() for a in tomorrow],
+                "for_next_seven_days": [a.serialize() for a in next_seven_days],
+                "for_later": [a.serialize() for a in for_later]
+            }
+
         return success_response(assignments_serialized)
-    return failure_response("Fail to log in")
+    return failure_response("Fail to log in", 401)
 
 
 @app.route('/api/courses/<int:course_id>/assignments/', methods=["POST"])
@@ -225,83 +273,90 @@ def add_assignment_to_course(course_id):
         title = body.get("title")
         due_date = body.get("due_date")
         description = body.get("description")
-        priority = body.get("description")
+        priority = body.get("priority")
         type = body.get("type")
+        success, session_token = extract_token(request)
+        user = get_user_by_session_token(session_token)
+        user_id = user.id
         if title is None or due_date is None or description is None or priority is None or type is None:
             return failure_response("All fields are required.", 400)
         new_assignment = Assignment(
             title=title,
-            due_date=due_date,
+            due_date=get_datetime_from_string(due_date),
             description=description,
             priority=priority,
             type=type,
             done=False,
-            course_id=course_id
+            course_id=course_id,
+            user_id=user_id
         )
         db.session.add(new_assignment)
         db.session.commit()
-        success, session_token = extract_token(request)
-        user = get_user_by_session_token(session_token)
-        user.courses.append(new_assignment)
-        db.session.commit()
-        return success_response(new_assignment.serialize(), 401)
-    return failure_response("Fail to log in")
+        return success_response(new_assignment.serialize())
+    return failure_response("Fail to log in", 401)
 
 
 # assignment endpoints
 @app.route('/api/assignments/')
 def get_all_assignments():
-    if(secret_message().find("message")!=-1):
-        current_assignments = \
-            [a.serialize() for a in Assignment.query.filter_by(done=False).order_by(Assignment.due_date.desc()).all()]
+    if secret_message().find("message") != -1:
+        group = request.args.get('group', "none")
+        success, session_token = extract_token(request)
+        user = get_user_by_session_token(session_token)
+        current_assignments_total = \
+            [a for a in
+             Assignment.query.filter_by(done=False, user_id=user.id).order_by(Assignment.due_date.asc()).all()]
         past_assignments = \
-            [a.serialize() for a in Assignment.query.filter_by(done=True).order_by(Assignment.due_date.desc()).all()]
-        return success_response({
-            "current_assignments": current_assignments,
-            "past_assignments": past_assignments
-        })
-    return failure_response("Fail to log in")
-
-
-@app.route('/api/assignments/<string:group>/')
-def get_all_assignments_by_group(group):
-    if(secret_message().find("message")!=-1):
-        # do a sort by group
-        current_assignments = \
-            [a.serialize() for a in Assignment.query.filter_by(done=False).order_by(Assignment.due_date.desc()).all()]
-        past_assignments = \
-            [a.serialize() for a in Assignment.query.filter_by(done=True).order_by(Assignment.due_date.desc()).all()]
+            [a.serialize() for a in
+             Assignment.query.filter_by(done=True, user_id=user.id).order_by(Assignment.due_date.asc()).all()]
         if group == "priority":
             current_assignments = {
-                "high": [a.serialize() for a in Assignment.query.filter_by(priority="high").order_by(Assignment.due_date.desc()).all()],
-                "medium": [a.serialize() for a in Assignment.query.filter_by(priority="medium").order_by(Assignment.due_date.desc()).all()],
-                "low": [a.serialize() for a in Assignment.query.filter_by(priority="low").order_by(Assignment.due_date.desc()).all()]
+                "high": [a.serialize() for a in current_assignments_total if a.priority == "high"],
+                "medium": [a.serialize() for a in current_assignments_total if a.priority == "medium"],
+                "low": [a.serialize() for a in current_assignments_total if a.priority == "low"],
+                "none": [a.serialize() for a in current_assignments_total if a.priority == "none"]
             }
         elif group == "type":
             current_assignments = {
-                "assignment": [a.serialize() for a in Assignment.query.filter_by(type="assignment").order_by(Assignment.due_date.desc()).all()],
-                "project": [a.serialize() for a in Assignment.query.filter_by(type="project").order_by(Assignment.due_date.desc()).all()],
-                "quiz": [a.serialize() for a in Assignment.query.filter_by(type="quiz").order_by(Assignment.due_date.desc()).all()],
-                "exam": [a.serialize() for a in Assignment.query.filter_by(type="exam").order_by(Assignment.due_date.desc()).all()],
+                "assignment": [a.serialize() for a in current_assignments_total if a.type == "assignment"],
+                "project": [a.serialize() for a in current_assignments_total if a.type == "project"],
+                "quiz": [a.serialize() for a in current_assignments_total if a.type == "quiz"],
+                "exam": [a.serialize() for a in current_assignments_total if a.type == "exam"],
+            }
+        else:
+            today = [a for a in current_assignments_total
+                     if a.due_date.date() == datetime.datetime.today().date()]
+            tomorrow = [a for a in current_assignments_total
+                        if a.due_date.date() == (datetime.datetime.today() + datetime.timedelta(days=1)).date()]
+            next_seven_days = [a for a in current_assignments_total
+                               if a.due_date.date() <= (datetime.datetime.today() + datetime.timedelta(days=7)).date()
+                               and not (a in today) and not (a in tomorrow)]
+            for_later = [a for a in current_assignments_total
+                         if not (a in today) and not (a in tomorrow) and not (a in next_seven_days)]
+            current_assignments = {
+                "for_today": [a.serialize() for a in today],
+                "for_tomorrow": [a.serialize() for a in tomorrow],
+                "for_next_seven_days": [a.serialize() for a in next_seven_days],
+                "for_later": [a.serialize() for a in for_later]
             }
         return success_response({
             "current_assignments": current_assignments,
             "past_assignments": past_assignments
         })
-    return failure_response("Fail to log in")       
+    return failure_response("Fail to log in", 401)
 
 
 @app.route('/api/assignments/<int:assignment_id>/')
 def get_assignment(assignment_id):
-    if(secret_message().find("message")!=-1):
+    if secret_message().find("message") != -1:
         assignment = Assignment.query.filter_by(id=assignment_id).first()
         if assignment is None:
             return failure_response("Assignment not found!")
         return success_response(assignment.serialize())
-    return failure_response("Fail to log in")
+    return failure_response("Fail to log in", 401)
 
 
-@app.route("/api/assignment/<int:assignment_id>/", methods=["POST"])
+@app.route("/api/assignments/<int:assignment_id>/", methods=["POST"])
 def update_assignment(assignment_id):
     if secret_message().find("message") != -1:
         assignment = Assignment.query.filter_by(id=assignment_id).first()
@@ -309,12 +364,12 @@ def update_assignment(assignment_id):
             return failure_response("Assignment not found")
         body = json.loads(request.data)
         title = body.get("title", assignment.title)
-        due_date = body.get("due_date", assignment.due_date)
+        due_date = body.get("due_date", arrow.get(assignment.due_date).format("ddd, MMM D, YYYY @ h:mmA"))
         description = body.get("description", assignment.description)
         priority = body.get("priority", assignment.priority)
         assignment_type = body.get("type", assignment.type)
         assignment.title = title
-        assignment.due_date = due_date
+        assignment.due_date = get_datetime_from_string(due_date)
         assignment.description = description
         assignment.priority = priority
         assignment.type = assignment_type
@@ -322,21 +377,19 @@ def update_assignment(assignment_id):
 
         db.session.commit()
         return success_response(assignment.serialize())
-    return failure_response("Fail to log in")
+    return failure_response("Fail to log in", 401)
 
 
 @app.route('/api/assignments/<int:assignment_id>/done/', methods=["POST"])
 def mark_assignment_as_done(assignment_id):
-    if(secret_message().find("message")!=-1):
+    if secret_message().find("message") != -1:
         assignment = Assignment.query.filter_by(id=assignment_id).first()
         if assignment is None:
             return failure_response("Assignment not found")
-        due_date = assignment.due_date
-        assignment.due_date = due_date
         assignment.done = True
         db.session.commit()
         return success_response(assignment.serialize())
-    return failure_response("Fail to log in")
+    return failure_response("Fail to log in", 401)
 
 
 @app.route('/api/assignments/<int:assignment_id>/', methods=["DELETE"])
@@ -348,10 +401,44 @@ def delete_assignment(assignment_id):
         db.session.delete(assignment)
         db.session.commit()
         return success_response(assignment.serialize())
-    return failure_response("Fail to log in")
+    return failure_response("Fail to log in", 401)
 
+
+@app.route('/api/assignments/done/', methods=["POST"])
+def mark_assignments_as_done_in_bulk():
+    if secret_message().find("message") != -1:
+        body = json.loads(request.data)
+        assignments = body.get("assignments", [])
+        for assignment_id in assignments:
+            assignment = Assignment.query.filter_by(id=assignment_id).first()
+            if assignment is None:
+                return failure_response("One of these assignments not found!")
+            assignment.done = True
+            db.session.commit()
+        return success_response(
+            [Assignment.query.filter_by(id=assignment_id).first().serialize() for assignment_id in assignments])
+    return failure_response("Fail to log in", 401)
+
+
+@app.route('/api/assignments/', methods=["DELETE"])
+def delete_assignments_in_bulk():
+    if secret_message().find("message") != -1:
+        body = json.loads(request.data)
+        assignments = body.get("assignments", [])
+        deleted_assignments = []
+        for assignment_id in assignments:
+            assignment = Assignment.query.filter_by(id=assignment_id).first()
+            if assignment is None:
+                return failure_response("One of these assignments not found!")
+            deleted_assignments.append(assignment)
+            db.session.delete(assignment)
+            db.session.commit()
+        return success_response(
+            [a.serialize() for a in deleted_assignments])
+    return failure_response("Fail to log in", 401)
 
 # AUTHENTICATION ROUTES
+
 
 # User login endpoint
 @app.route('/login/', methods=["POST"])
@@ -396,7 +483,7 @@ def register_account():
             "session_expiration": str(user.session_expiration),
             "update_token": user.update_token,
             "name": name,
-            "netid":netid
+            "netid": netid
         }
     )
 
