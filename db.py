@@ -8,18 +8,7 @@ import os
 
 db = SQLAlchemy()
 
-# association_table_user_course = db.Table("association_user_course", db.Model.metadata,
-#                                          db.Column("user_id", db.Integer, db.ForeignKey("users.id")),
-#                                          db.Column("course_id", db.Integer, db.ForeignKey("courses.id")),
-#                                          )
-#
-# association_table_user_assignment = db.Table("association_user_assignment", db.Model.metadata,
-#                                              db.Column("user_id", db.Integer, db.ForeignKey("users.id")),
-#                                              db.Column("assignment_id", db.Integer, db.ForeignKey("assignments.id")),
-#                                              )
 
-
-# model based on the api
 # models for courses
 class Course(db.Model):
     __tablename__ = "courses"
@@ -77,7 +66,7 @@ class Assignment(db.Model):
         return {
             "id": self.id,
             "title": self.title,
-            "due_date": arrow.get(self.due_date, "America/New_York").format("ddd, MMM D, YYYY @ h:mmA"),
+            "due_date": arrow.get(self.due_date, "America/New_York").format("MMM D, YYYY"),
             "relative_due_date": arrow.get(self.due_date, "America/New_York").humanize(),
             "description": self.description,
             "priority": self.priority,
@@ -123,7 +112,7 @@ class User(db.Model):
     
     def renew_session(self):
         self.session_token = self._urlsafe_base_64()
-        self.session_expiration = datetime.datetime.now()+datetime.timedelta(years=10)
+        self.session_expiration = datetime.datetime.now() + datetime.timedelta(days=1000)
         self.update_token = self._urlsafe_base_64()
      
     def verify_password(self, password):

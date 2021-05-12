@@ -1,6 +1,7 @@
 import json
 
 import arrow
+import os
 from flask import Flask
 import requests
 import datetime
@@ -80,7 +81,7 @@ def extract_relevant_course_data(class_data):
 
 
 def get_datetime_from_string(d):
-    return datetime.datetime.strptime(d, '%a, %b %d, %Y @ %I:%M%p')
+    return datetime.datetime.strptime(d, '%b %d, %Y')
 
 
 def get_time_from_string(t):
@@ -141,7 +142,7 @@ def get_all_courses():
         user = get_user_by_session_token(session_token)
         courses = [c.serialize() for c in user.courses]
         return success_response(courses)
-    return failure_response("Failed to authenticate" + secret_message().get("error"), 401)
+    return failure_response("Failed to authenticate", 401)
 
 
 @app.route('/api/courses/', methods=["POST"])
@@ -526,4 +527,5 @@ def secret_message():
 
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5000, debug=True)
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host="0.0.0.0", port=port)
