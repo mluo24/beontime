@@ -13,8 +13,8 @@ db = SQLAlchemy()
 class Course(db.Model):
     __tablename__ = "courses"
     id = db.Column(db.Integer, primary_key=True)
-    subject = db.Column(db.String, nullable=False)
-    code = db.Column(db.Integer, nullable=False)
+    subject = db.Column(db.String, nullable=True)
+    code = db.Column(db.Integer, nullable=True)
     name = db.Column(db.String, nullable=False)
     days_on = db.Column(db.String, nullable=True)
     time = db.Column(db.Time, nullable=True)
@@ -79,6 +79,7 @@ class Assignment(db.Model):
         course = Course.query.filter_by(id=self.course_id).first()
         data["course"] = {
             "id": course.id,
+            "subject": course.subject,
             "code": course.code,
             "name": course.name
         }

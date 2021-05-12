@@ -149,11 +149,11 @@ def get_all_courses():
 def add_course():
     if secret_message().find("message") != -1:
         body = json.loads(request.data)
-        subject = body.get("subject")
-        code = body.get("code")
+        subject = body.get("subject", "")
+        code = body.get("code", "")
         name = body.get("name")
-        days_on = body.get("days_on")
-        time = body.get("time")
+        days_on = body.get("days_on", "")
+        time = body.get("time", "")
         success, session_token = extract_token(request)
         user = get_user_by_session_token(session_token)
         user_id = user.id
