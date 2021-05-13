@@ -133,3 +133,4 @@ docker-compose.yml
 .dockerignore
 **/.DS_Store
 .DS_Store
+.idea/
