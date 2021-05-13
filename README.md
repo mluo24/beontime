@@ -1,4 +1,6 @@
 # BeOnTime
+Helping students be on time in their courses!
+
 Repository for the app BeOnTime, by Jessie Chen, Miranda Luo, Miranda Medina, and Coco Xu for the Cornell AppDev challenge.
 
 Design: Miranda Medina
@@ -12,6 +14,10 @@ This app is meant for students of Cornell University to keep track of assignment
 
 ## Design Markup
 https://www.figma.com/file/EcvXbDWQLv45ku3qQ4iYFR/BeOnTime-Mockup?node-id=0%3A1
+
+## iOS Information
+
+iOS code is in the "iOS" folder.
 
 ## Backend API documentation:
 
