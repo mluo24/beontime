@@ -22,3 +22,10 @@ iOS code is in the "iOS" folder.
 ## Backend API documentation:
 
 https://documenter.getpostman.com/view/14753301/TzRUA75X
+
+
+iOS: 
+Layout: NSLayoutConstraint for everything
+Navigation: pushViewController for each button on the home page, pushViewController for each cell in the courseTableCellView and the assignmentTableCellView.
+UITableView: Two UITableViews, one for courses and one for assignments
+API: for login & register page (.post method), add courses(.post method)
