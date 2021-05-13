@@ -23,7 +23,8 @@ This app is meant for students of Cornell University to keep track of assignment
 - viewing assignments
 - marking assignments as done
 
-### Screenshots
+### Screenshots 
+\(Sorry, I could not make them any smaller!\)
 ![home](photos/1.png)
 ![user](photos/2.png)
 ![add course](photos/4.png)
